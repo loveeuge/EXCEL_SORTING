@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>엑셀 파일 처리 프로그램</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1, h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .upload-wrapper {
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+        }
+
+        .upload-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            border: none;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .upload-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .file-input {
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .status.success {
+            background: linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, rgba(56, 161, 105, 0.1) 100%);
+            color: #22543d;
+            border: 1px solid rgba(72, 187, 120, 0.3);
+            display: block;
+        }
+
+        .status.error {
+            background: linear-gradient(135deg, rgba(245, 101, 101, 0.1) 0%, rgba(237, 64, 64, 0.1) 100%);
+            color: #742a2a;
+            border: 1px solid rgba(245, 101, 101, 0.3);
+            display: block;
+        }
+
+        .status.processing {
+            background: linear-gradient(135deg, rgba(66, 153, 225, 0.1) 0%, rgba(49, 130, 206, 0.1) 100%);
+            color: #2c5282;
+            border: 1px solid rgba(66, 153, 225, 0.3);
+            display: block;
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .info-box ul {
+            list-style: none;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .info-box ul li:before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .color-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .loader {
+            border: 3px solid rgba(102, 126, 234, 0.2);
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats-box {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .stats-box h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .stat-item {
+            padding: 8px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .stat-value {
+            color: #333;
+            font-weight: bold;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- 첫 번째 프로그램: 솔팅 -->
+        <div class="container">
+            <h1>📊 엑셀 파일 솔팅 프로그램</h1>
+            
+            <div class="info-box">
+                <h3>처리 내용</h3>
+                <ul>
+                    <li>All 시트에서 필요한 열만 추출</li>
+                    <li>보존 열: Id, 나이키, 250821, 홍길동, 010 1234 5678</li>
+                    <li>열 이름 변경: 나이키→팀장이름, 250821→생년월일, 홍길동→팀원이름, 010 1234 5678→전화번호</li>
+                    <li>파일명에 "_솔팅" 추가</li>
+                </ul>
+            </div>
+
+            <div class="upload-wrapper">
+                <div class="upload-area" id="uploadArea1">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">엑셀 파일을 드래그하여 업로드</div>
+                    <label for="fileInput1" class="upload-button">파일 선택</label>
+                </div>
+                <input type="file" id="fileInput1" class="file-input" accept=".xlsx,.xls">
+            </div>
+
+            <div id="status1" class="status"></div>
+        </div>
+
+        <!-- 두 번째 프로그램: 중복 검사 -->
+        <div class="container">
+            <h2>🔍 중복 및 오류 검사 프로그램</h2>
+            
+            <div class="info-box">
+                <h3>검사 항목 및 색상 표시</h3>
+                <div class="color-legend">
+                    <div class="legend-item">
+                        <div class="color-box" style="background-color: #FF6B6B;"></div>
+                        <span>팀장이름 중복 (빨강)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="color-box" style="background-color: #51CF66;"></div>
+                        <span>미성년자/잘못된 생년월일 (녹색)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="color-box" style="background-color: #FFD93D;"></div>
+                        <span>팀장/팀원 이름 동일 (노랑)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="color-box" style="background-color: #B197FC;"></div>
+                        <span>잘못된 전화번호 (보라)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="color-box" style="background-color: #8B6835;"></div>
+                        <span>복합 오류 (갈색)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="upload-wrapper">
+                <div class="upload-area" id="uploadArea2">
+                    <div class="upload-icon">📋</div>
+                    <div class="upload-text">솔팅된 엑셀 파일을 드래그하여 업로드</div>
+                    <label for="fileInput2" class="upload-button">파일 선택</label>
+                </div>
+                <input type="file" id="fileInput2" class="file-input" accept=".xlsx,.xls">
+            </div>
+
+            <div id="status2" class="status"></div>
+            <div id="statsBox" class="stats-box" style="display: none;">
+                <h4>검사 결과 통계</h4>
+                <div class="stats-grid" id="statsGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 페이지 로드 시 드래그 앤 드롭 방지
+        window.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+        
+        window.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+
+        // 첫 번째 프로그램 (솔팅)
+        const uploadArea1 = document.getElementById('uploadArea1');
+        const fileInput1 = document.getElementById('fileInput1');
+        const statusDiv1 = document.getElementById('status1');
+
+        // 파일 선택 이벤트
+        fileInput1.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleSortingFile(e.target.files[0]);
+            }
+        });
+
+        // 드래그 오버
+        uploadArea1.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea1.classList.add('dragover');
+        });
+
+        // 드래그 떠남
+        uploadArea1.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea1.classList.remove('dragover');
+        });
+
+        // 드롭
+        uploadArea1.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea1.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                handleSortingFile(files[0]);
+            }
+        });
+
+        function showStatus1(message, type) {
+            statusDiv1.className = `status ${type}`;
+            statusDiv1.innerHTML = message;
+        }
+
+        function handleSortingFile(file) {
+            if (!file.name.match(/\.(xlsx|xls)$/)) {
+                showStatus1('❌ 엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error');
+                return;
+            }
+
+            showStatus1('<div class="loader"></div>파일 처리 중...', 'processing');
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = e.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    
+                    if (!workbook.Sheets['All']) {
+                        showStatus1('❌ "All" 시트를 찾을 수 없습니다.', 'error');
+                        return;
+                    }
+                    
+                    const allSheet = workbook.Sheets['All'];
+                    const jsonData = XLSX.utils.sheet_to_json(allSheet, { header: 1 });
+                    
+                    if (jsonData.length === 0) {
+                        showStatus1('❌ 데이터가 없습니다.', 'error');
+                        return;
+                    }
+                    
+                    const headers = jsonData[0];
+                    const columnsToKeep = ['Id', '나이키', '250821', '홍길동', '010 1234 5678'];
+                    const columnIndices = [];
+                    const columnMapping = {};
+                    
+                    columnsToKeep.forEach(colName => {
+                        const index = headers.findIndex(header => {
+                            if (!header) return false;
+                            const headerStr = header.toString().trim();
+                            return headerStr === colName || 
+                                   headerStr.includes(colName) || 
+                                   colName.includes(headerStr);
+                        });
+                        
+                        if (index !== -1) {
+                            columnIndices.push(index);
+                            columnMapping[index] = colName;
+                        }
+                    });
+                    
+                    if (columnIndices.length === 0) {
+                        showStatus1('❌ 필요한 열을 찾을 수 없습니다.', 'error');
+                        return;
+                    }
+                    
+                    const newData = [];
+                    const newHeaders = columnIndices.map(index => {
+                        const originalHeader = headers[index];
+                        const mappedName = columnMapping[index];
+                        
+                        if (originalHeader.toString().includes('나이키') || mappedName === '나이키') {
+                            return '팀장이름';
+                        } else if (originalHeader.toString().includes('250821') || mappedName === '250821') {
+                            return '생년월일';
+                        } else if (originalHeader.toString().includes('홍길동') || mappedName === '홍길동') {
+                            return '팀원이름';
+                        } else if (originalHeader.toString().includes('010') || mappedName === '010 1234 5678') {
+                            return '전화번호';
+                        } else {
+                            return originalHeader;
+                        }
+                    });
+                    
+                    newData.push(newHeaders);
+                    
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        const newRow = columnIndices.map(index => row[index] || '');
+                        newData.push(newRow);
+                    }
+                    
+                    const newWorkbook = XLSX.utils.book_new();
+                    const newWorksheet = XLSX.utils.aoa_to_sheet(newData);
+                    
+                    const colWidths = newHeaders.map((header, i) => {
+                        let maxLength = header.length;
+                        for (let j = 1; j < newData.length; j++) {
+                            const cellValue = newData[j][i];
+                            if (cellValue && cellValue.toString().length > maxLength) {
+                                maxLength = cellValue.toString().length;
+                            }
+                        }
+                        return { wch: Math.min(maxLength + 2, 50) };
+                    });
+                    newWorksheet['!cols'] = colWidths;
+                    
+                    XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, 'All');
+                    
+                    const newFileName = file.name.replace(/\.(xlsx|xls)$/, '_솔팅.xlsx');
+                    XLSX.writeFile(newWorkbook, newFileName);
+                    
+                    showStatus1(`✅ 파일 처리 완료! "${newFileName}" 다운로드됨<br>처리된 열: ${columnIndices.length}개`, 'success');
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    showStatus1(`❌ 파일 처리 중 오류 발생: ${error.message}`, 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                showStatus1('❌ 파일 읽기 실패', 'error');
+            };
+            
+            reader.readAsBinaryString(file);
+        }
+
+        // 두 번째 프로그램 (중복 검사)
+        const uploadArea2 = document.getElementById('uploadArea2');
+        const fileInput2 = document.getElementById('fileInput2');
+        const statusDiv2 = document.getElementById('status2');
+        const statsBox = document.getElementById('statsBox');
+        const statsGrid = document.getElementById('statsGrid');
+
+        // 파일 선택 이벤트
+        fileInput2.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleDuplicateCheck(e.target.files[0]);
+            }
+        });
+
+        // 드래그 오버
+        uploadArea2.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea2.classList.add('dragover');
+        });
+
+        // 드래그 떠남
+        uploadArea2.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea2.classList.remove('dragover');
+        });
+
+        // 드롭
+        uploadArea2.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea2.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                handleDuplicateCheck(files[0]);
+            }
+        });
+
+        function showStatus2(message, type) {
+            statusDiv2.className = `status ${type}`;
+            statusDiv2.innerHTML = message;
+        }
+
+        function handleDuplicateCheck(file) {
+            if (!file.name.match(/\.(xlsx|xls)$/)) {
+                showStatus2('❌ 엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error');
+                return;
+            }
+
+            showStatus2('<div class="loader"></div>중복 및 오류 검사 중...', 'processing');
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = e.target.result;
+                    const workbook = XLSX.read(data, { 
+                        type: 'binary'
+                    });
+                    
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+                    
+                    if (jsonData.length === 0) {
+                        showStatus2('❌ 데이터가 없습니다.', 'error');
+                        return;
+                    }
+                    
+                    const headers = jsonData[0];
+                    
+                    // 열 인덱스 찾기
+                    const colIndices = {
+                        id: headers.findIndex(h => h && h.toString().includes('Id')),
+                        teamLeader: headers.findIndex(h => h && h.toString().includes('팀장이름')),
+                        birthDate: headers.findIndex(h => h && h.toString().includes('생년월일')),
+                        teamMember: headers.findIndex(h => h && h.toString().includes('팀원이름')),
+                        phone: headers.findIndex(h => h && h.toString().includes('전화번호'))
+                    };
+                    
+                    // 통계 초기화
+                    const stats = {
+                        total: jsonData.length - 1,
+                        duplicateLeader: 0,
+                        minor: 0,
+                        sameNames: 0,
+                        wrongPhone: 0,
+                        multipleErrors: 0
+                    };
+                    
+                    // 팀장 이름 중복 체크를 위한 맵
+                    const leaderNameCount = {};
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const leaderName = jsonData[i][colIndices.teamLeader];
+                        if (leaderName) {
+                            const name = leaderName.toString().trim();
+                            if (name) {
+                                leaderNameCount[name] = (leaderNameCount[name] || 0) + 1;
+                            }
+                        }
+                    }
+                    
+                    // 각 행 검사 및 오류 타입 저장
+                    const rowErrors = [];
+                    const newData = [headers]; // 헤더 추가
+                    
+                    // 오류 마커 추가할 열 인덱스
+                    const errorColumnIndex = headers.length;
+                    newData[0].push('검사결과'); // 새 열 헤더 추가
+                    
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const row = [...jsonData[i]]; // 행 복사
+                        const errors = [];
+                        let errorMessages = [];
+                        
+                        // 1. 팀장이름 중복 체크
+                        const leaderName = row[colIndices.teamLeader];
+                        if (leaderName) {
+                            const name = leaderName.toString().trim();
+                            if (name && leaderNameCount[name] > 1) {
+                                errors.push('duplicate');
+                                errorMessages.push('【중복】팀장이름');
+                                stats.duplicateLeader++;
+                            }
+                        }
+                        
+                        // 2. 미성년자 체크 (2006년 8월 21일 이후)
+                        const birthDate = row[colIndices.birthDate];
+                        if (birthDate) {
+                            const birthStr = birthDate.toString().trim();
+                            // YYMMDD 또는 YYYYMMDD 형식 체크
+                            if (birthStr.length === 6 || birthStr.length === 8) {
+                                let year, month, day;
+                                
+                                if (birthStr.length === 6) {
+                                    year = parseInt(birthStr.substring(0, 2));
+                                    month = parseInt(birthStr.substring(2, 4));
+                                    day = parseInt(birthStr.substring(4, 6));
+                                    // 00-25는 2000년대, 26-99는 1900년대로 가정
+                                    year = year <= 25 ? 2000 + year : 1900 + year;
+                                } else {
+                                    year = parseInt(birthStr.substring(0, 4));
+                                    month = parseInt(birthStr.substring(4, 6));
+                                    day = parseInt(birthStr.substring(6, 8));
+                                }
+                                
+                                // 2006년 8월 21일 이후 출생자는 미성년자
+                                if (year > 2006 || 
+                                    (year === 2006 && month > 8) || 
+                                    (year === 2006 && month === 8 && day > 21)) {
+                                    errors.push('minor');
+                                    errorMessages.push('【미성년】');
+                                    stats.minor++;
+                                } else if (month > 12 || month < 1 || day > 31 || day < 1) {
+                                    errors.push('minor');
+                                    errorMessages.push('【날짜오류】');
+                                    stats.minor++;
+                                }
+                            } else if (birthStr.length > 0) {
+                                // 잘못된 형식
+                                errors.push('minor');
+                                errorMessages.push('【생년월일오류】');
+                                stats.minor++;
+                            }
+                        }
+                        
+                        // 3. 팀장과 팀원 이름 동일 체크
+                        const teamMember = row[colIndices.teamMember];
+                        if (leaderName && teamMember) {
+                            const leaderStr = leaderName.toString().trim();
+                            const memberStr = teamMember.toString().trim();
+                            if (leaderStr && memberStr && leaderStr === memberStr) {
+                                errors.push('sameName');
+                                errorMessages.push('【이름동일】');
+                                stats.sameNames++;
+                            }
+                        }
+                        
+                        // 4. 전화번호 체크 (11자리)
+                        const phone = row[colIndices.phone];
+                        if (phone) {
+                            const phoneStr = phone.toString().replace(/[^0-9]/g, '');
+                            if (phoneStr.length > 0) {
+                                // 0이 없으면 추가해서 체크
+                                const phoneWithZero = phoneStr.startsWith('0') ? phoneStr : '0' + phoneStr;
+                                if (phoneWithZero.length !== 11) {
+                                    errors.push('wrongPhone');
+                                    errorMessages.push('【전화번호】');
+                                    stats.wrongPhone++;
+                                }
+                            }
+                        }
+                        
+                        // 복합 오류 체크
+                        if (errors.length >= 2) {
+                            stats.multipleErrors++;
+                            row.push('★★' + errorMessages.join(' '));
+                        } else if (errors.length === 1) {
+                            row.push('★' + errorMessages.join(' '));
+                        } else {
+                            row.push(''); // 오류 없음
+                        }
+                        
+                        newData.push(row);
+                        rowErrors.push(errors);
+                    }
+                    
+                    // HTML 테이블 생성 (미리보기용)
+                    let htmlTable = '<div style="margin: 20px 0; padding: 20px; background: white; border-radius: 10px; max-height: 400px; overflow: auto;">';
+                    htmlTable += '<h3 style="color: #667eea; margin-bottom: 15px;">검사 결과 미리보기</h3>';
+                    htmlTable += '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+                    htmlTable += '<thead><tr style="background: #f0f0f0;">';
+                    
+                    // 테이블 헤더
+                    newData[0].forEach(header => {
+                        htmlTable += `<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">${header}</th>`;
+                    });
+                    htmlTable += '</tr></thead><tbody>';
+                    
+                    // 테이블 본문 (처음 20행만 표시)
+                    const displayRows = Math.min(21, newData.length);
+                    for (let i = 1; i < displayRows; i++) {
+                        const errors = rowErrors[i - 1];
+                        let bgColor = 'white';
+                        let fontWeight = 'normal';
+                        
+                        if (errors.length >= 2) {
+                            bgColor = '#8B6835'; // 갈색
+                            fontWeight = 'bold';
+                        } else if (errors.includes('duplicate')) {
+                            bgColor = '#FF6B6B'; // 빨강
+                        } else if (errors.includes('minor')) {
+                            bgColor = '#51CF66'; // 녹색
+                        } else if (errors.includes('sameName')) {
+                            bgColor = '#FFD93D'; // 노랑
+                        } else if (errors.includes('wrongPhone')) {
+                            bgColor = '#B197FC'; // 보라
+                        }
+                        
+                        htmlTable += `<tr style="background: ${bgColor}; color: ${bgColor !== 'white' ? 'white' : 'black'}; font-weight: ${fontWeight};">`;
+                        newData[i].forEach(cell => {
+                            htmlTable += `<td style="border: 1px solid #ddd; padding: 5px;">${cell || ''}</td>`;
+                        });
+                        htmlTable += '</tr>';
+                    }
+                    
+                    if (newData.length > displayRows) {
+                        htmlTable += `<tr><td colspan="${newData[0].length}" style="text-align: center; padding: 10px; color: #666;">... 외 ${newData.length - displayRows}행 더 있음 ...</td></tr>`;
+                    }
+                    
+                    htmlTable += '</tbody></table></div>';
+                    
+                    // 새 워크북 생성
+                    const newWorkbook = XLSX.utils.book_new();
+                    const newSheet = XLSX.utils.aoa_to_sheet(newData);
+                    
+                    // 열 너비 설정
+                    const colWidths = newData[0].map((header, i) => {
+                        let maxLength = header ? header.toString().length : 10;
+                        for (let j = 1; j < newData.length; j++) {
+                            const cellValue = newData[j][i];
+                            if (cellValue && cellValue.toString().length > maxLength) {
+                                maxLength = cellValue.toString().length;
+                            }
+                        }
+                        return { wch: Math.min(maxLength + 2, 50) };
+                    });
+                    newSheet['!cols'] = colWidths;
+                    
+                    // 워크북에 시트 추가
+                    XLSX.utils.book_append_sheet(newWorkbook, newSheet, sheetName);
+                    
+                    // 파일 저장
+                    const newFileName = file.name.replace(/\.(xlsx|xls)$/, '_검사완료.xlsx');
+                    XLSX.writeFile(newWorkbook, newFileName);
+                    
+                    // 통계 표시
+                    statsBox.style.display = 'block';
+                    statsGrid.innerHTML = `
+                        <div class="stat-item">
+                            <div class="stat-label">전체 데이터</div>
+                            <div class="stat-value">${stats.total}건</div>
+                        </div>
+                        <div class="stat-item" style="background: rgba(255, 107, 107, 0.1);">
+                            <div class="stat-label">팀장이름 중복</div>
+                            <div class="stat-value">${stats.duplicateLeader}건</div>
+                        </div>
+                        <div class="stat-item" style="background: rgba(81, 207, 102, 0.1);">
+                            <div class="stat-label">미성년자/오류</div>
+                            <div class="stat-value">${stats.minor}건</div>
+                        </div>
+                        <div class="stat-item" style="background: rgba(255, 217, 61, 0.1);">
+                            <div class="stat-label">이름 동일</div>
+                            <div class="stat-value">${stats.sameNames}건</div>
+                        </div>
+                        <div class="stat-item" style="background: rgba(177, 151, 252, 0.1);">
+                            <div class="stat-label">전화번호 오류</div>
+                            <div class="stat-value">${stats.wrongPhone}건</div>
+                        </div>
+                        <div class="stat-item" style="background: rgba(139, 104, 53, 0.1);">
+                            <div class="stat-label">복합 오류</div>
+                            <div class="stat-value">${stats.multipleErrors}건</div>
+                        </div>
+                    `;
+                    
+                    // HTML 테이블을 상태 메시지 뒤에 추가
+                    showStatus2(`✅ 검사 완료! "${newFileName}" 다운로드됨<br><small>★표시가 있는 행을 확인하세요. (★★는 복합오류)</small>`, 'success');
+                    
+                    // 미리보기 테이블 추가
+                    const previewDiv = document.createElement('div');
+                    previewDiv.innerHTML = htmlTable;
+                    statusDiv2.appendChild(previewDiv);
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    showStatus2(`❌ 파일 처리 중 오류 발생: ${error.message}`, 'error');
+                    statsBox.style.display = 'none';
+                }
+            };
+            
+            reader.onerror = function() {
+                showStatus2('❌ 파일 읽기 실패', 'error');
+                statsBox.style.display = 'none';
+            };
+            
+            reader.readAsBinaryString(file);
+        }
+    </script>
+</body>
+</html>
