@@ -1,4 +1,23 @@
-<!DOCTYPE html>
+// 테이블 본문 (처음 20행만 표시)
+                    const displayRows = Math.min(21, newData.length);
+                    for (let i = 1; i < displayRows; i++) {
+                        const errors = rowErrors[i - 1];
+                        let bgColor = 'white';
+                        let fontWeight = 'normal';
+                        
+                        if (errors.length >= 2) {
+                            bgColor = '#8B6835'; // 갈색 (복합 오류)
+                            fontWeight = 'bold';
+                        } else if (errors.includes('duplicate')) {
+                            bgColor = '#FF6B6B'; // 빨강
+                        } else if (errors.includes('swapDuplicate')) {
+                            bgColor = '#FF9999'; // 연빨강
+                        } else if (errors.includes('minor')) {
+                            bgColor = '#51CF66'; // 녹색
+                        } else if (errors.includes('sameName')) {
+                            bgColor = '#FFD93D'; // 노랑
+                        } else if (errors.includes('birthDuplicate')) {
+                            bg<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -266,8 +285,9 @@
                 <h3>처리 내용</h3>
                 <ul>
                     <li>All 시트에서 필요한 열만 추출</li>
-                    <li>보존 열: Id, 나이키, 250821, 홍길동, 010 1234 5678</li>
-                    <li>열 이름 변경: 나이키→팀장이름, 250821→생년월일, 홍길동→팀원이름, 010 1234 5678→전화번호</li>
+                    <li>보존 열: Event Name, 런제주 2025, 나이키, 250821, 홍길동, 250905, 010 1234 5678</li>
+                    <li>열 이름 변경: 나이키→팀장이름, 250821→팀장 생년월일, 홍길동→팀원이름, 250905→팀원 생년월일, 010 1234 5678→전화번호</li>
+                    <li>전화번호 자동 정리: 0 추가 및 3-4-4 형식으로 변환</li>
                     <li>파일명에 "_솔팅" 추가</li>
                 </ul>
             </div>
@@ -296,12 +316,24 @@
                         <span>팀장이름 중복 (빨강)</span>
                     </div>
                     <div class="legend-item">
+                        <div class="color-box" style="background-color: #FF9999;"></div>
+                        <span>팀장팀원 바꿔 중복 (연빨강)</span>
+                    </div>
+                    <div class="legend-item">
                         <div class="color-box" style="background-color: #51CF66;"></div>
                         <span>미성년자/잘못된 생년월일 (녹색)</span>
                     </div>
                     <div class="legend-item">
                         <div class="color-box" style="background-color: #FFD93D;"></div>
                         <span>팀장/팀원 이름 동일 (노랑)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="color-box" style="background-color: #87CEEB;"></div>
+                        <span>생년월일 중복 (하늘색)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="color-box" style="background-color: #FFA500;"></div>
+                        <span>전화번호 중복 (주황)</span>
                     </div>
                     <div class="legend-item">
                         <div class="color-box" style="background-color: #B197FC;"></div>
@@ -415,7 +447,7 @@
                     }
                     
                     const headers = jsonData[0];
-                    const columnsToKeep = ['Id', '나이키', '250821', '홍길동', '010 1234 5678'];
+                    const columnsToKeep = ['Event Name', '런제주 2025', '나이키', '250821', '홍길동', '250905', '010 1234 5678'];
                     const columnIndices = [];
                     const columnMapping = {};
                     
@@ -439,6 +471,28 @@
                         return;
                     }
                     
+                    // 전화번호 포맷팅 함수
+                    function formatPhoneNumber(phone) {
+                        if (!phone) return '';
+                        
+                        // 숫자만 추출
+                        let phoneStr = phone.toString().replace(/[^0-9]/g, '');
+                        
+                        // 0이 없으면 추가
+                        if (phoneStr.length > 0 && !phoneStr.startsWith('0')) {
+                            phoneStr = '0' + phoneStr;
+                        }
+                        
+                        // 11자리인 경우 3-4-4 형식으로 변환
+                        if (phoneStr.length === 11) {
+                            return phoneStr.substring(0, 3) + '-' + 
+                                   phoneStr.substring(3, 7) + '-' + 
+                                   phoneStr.substring(7, 11);
+                        }
+                        
+                        return phoneStr; // 11자리가 아닌 경우 그대로 반환
+                    }
+                    
                     const newData = [];
                     const newHeaders = columnIndices.map(index => {
                         const originalHeader = headers[index];
@@ -447,9 +501,11 @@
                         if (originalHeader.toString().includes('나이키') || mappedName === '나이키') {
                             return '팀장이름';
                         } else if (originalHeader.toString().includes('250821') || mappedName === '250821') {
-                            return '생년월일';
+                            return '팀장 생년월일';
                         } else if (originalHeader.toString().includes('홍길동') || mappedName === '홍길동') {
                             return '팀원이름';
+                        } else if (originalHeader.toString().includes('250905') || mappedName === '250905') {
+                            return '팀원 생년월일';
                         } else if (originalHeader.toString().includes('010') || mappedName === '010 1234 5678') {
                             return '전화번호';
                         } else {
@@ -459,9 +515,21 @@
                     
                     newData.push(newHeaders);
                     
+                    // 전화번호 열 인덱스 찾기
+                    const phoneColumnIndex = newHeaders.findIndex(h => h === '전화번호');
+                    
                     for (let i = 1; i < jsonData.length; i++) {
                         const row = jsonData[i];
-                        const newRow = columnIndices.map(index => row[index] || '');
+                        const newRow = columnIndices.map((index, colIdx) => {
+                            const value = row[index] || '';
+                            
+                            // 전화번호 열인 경우 포맷팅 적용
+                            if (colIdx === phoneColumnIndex) {
+                                return formatPhoneNumber(value);
+                            }
+                            
+                            return value;
+                        });
                         newData.push(newRow);
                     }
                     
@@ -485,7 +553,7 @@
                     const newFileName = file.name.replace(/\.(xlsx|xls)$/, '_솔팅.xlsx');
                     XLSX.writeFile(newWorkbook, newFileName);
                     
-                    showStatus1(`✅ 파일 처리 완료! "${newFileName}" 다운로드됨<br>처리된 열: ${columnIndices.length}개`, 'success');
+                    showStatus1(`✅ 파일 처리 완료! "${newFileName}" 다운로드됨<br>처리된 열: ${columnIndices.length}개<br>전화번호 자동 포맷팅 완료`, 'success');
                     
                 } catch (error) {
                     console.error('Error:', error);
@@ -575,10 +643,12 @@
                     
                     // 열 인덱스 찾기
                     const colIndices = {
-                        id: headers.findIndex(h => h && h.toString().includes('Id')),
+                        eventName: headers.findIndex(h => h && h.toString().includes('Event Name')),
+                        runJeju: headers.findIndex(h => h && h.toString().includes('런제주')),
                         teamLeader: headers.findIndex(h => h && h.toString().includes('팀장이름')),
-                        birthDate: headers.findIndex(h => h && h.toString().includes('생년월일')),
+                        leaderBirth: headers.findIndex(h => h && h.toString().includes('팀장 생년월일')),
                         teamMember: headers.findIndex(h => h && h.toString().includes('팀원이름')),
+                        memberBirth: headers.findIndex(h => h && h.toString().includes('팀원 생년월일')),
                         phone: headers.findIndex(h => h && h.toString().includes('전화번호'))
                     };
                     
@@ -586,20 +656,76 @@
                     const stats = {
                         total: jsonData.length - 1,
                         duplicateLeader: 0,
+                        swapDuplicate: 0,
                         minor: 0,
                         sameNames: 0,
+                        birthDuplicate: 0,
+                        phoneDuplicate: 0,
                         wrongPhone: 0,
                         multipleErrors: 0
                     };
                     
-                    // 팀장 이름 중복 체크를 위한 맵
+                    // 중복 체크를 위한 맵
                     const leaderNameCount = {};
+                    const teamPairMap = {}; // 팀장-팀원 조합 체크용
+                    const birthDateCount = {}; // 생년월일 중복 체크용
+                    const phoneCount = {}; // 전화번호 중복 체크용
+                    
+                    // 첫 번째 패스: 모든 데이터 수집
                     for (let i = 1; i < jsonData.length; i++) {
-                        const leaderName = jsonData[i][colIndices.teamLeader];
+                        const row = jsonData[i];
+                        
+                        // 팀장 이름 카운트
+                        const leaderName = row[colIndices.teamLeader];
                         if (leaderName) {
                             const name = leaderName.toString().trim();
                             if (name) {
                                 leaderNameCount[name] = (leaderNameCount[name] || 0) + 1;
+                            }
+                        }
+                        
+                        // 팀장-팀원 조합 저장 (순서 바꾼 중복 체크용)
+                        const teamMember = row[colIndices.teamMember];
+                        if (leaderName && teamMember) {
+                            const leader = leaderName.toString().trim();
+                            const member = teamMember.toString().trim();
+                            if (leader && member) {
+                                const pairKey = [leader, member].sort().join('-');
+                                if (!teamPairMap[pairKey]) {
+                                    teamPairMap[pairKey] = [];
+                                }
+                                teamPairMap[pairKey].push({
+                                    index: i,
+                                    leader: leader,
+                                    member: member
+                                });
+                            }
+                        }
+                        
+                        // 생년월일 카운트 (팀장, 팀원 모두)
+                        const leaderBirth = row[colIndices.leaderBirth];
+                        const memberBirth = row[colIndices.memberBirth];
+                        
+                        if (leaderBirth) {
+                            const birth = leaderBirth.toString().trim();
+                            if (birth) {
+                                birthDateCount[birth] = (birthDateCount[birth] || 0) + 1;
+                            }
+                        }
+                        
+                        if (memberBirth) {
+                            const birth = memberBirth.toString().trim();
+                            if (birth) {
+                                birthDateCount[birth] = (birthDateCount[birth] || 0) + 1;
+                            }
+                        }
+                        
+                        // 전화번호 카운트
+                        const phone = row[colIndices.phone];
+                        if (phone) {
+                            const phoneStr = phone.toString().replace(/[^0-9]/g, '');
+                            if (phoneStr) {
+                                phoneCount[phoneStr] = (phoneCount[phoneStr] || 0) + 1;
                             }
                         }
                     }
@@ -623,16 +749,41 @@
                             const name = leaderName.toString().trim();
                             if (name && leaderNameCount[name] > 1) {
                                 errors.push('duplicate');
-                                errorMessages.push('【중복】팀장이름');
+                                errorMessages.push('팀장중복');
                                 stats.duplicateLeader++;
                             }
                         }
                         
-                        // 2. 미성년자 체크 (2006년 8월 21일 이후)
-                        const birthDate = row[colIndices.birthDate];
-                        if (birthDate) {
-                            const birthStr = birthDate.toString().trim();
-                            // YYMMDD 또는 YYYYMMDD 형식 체크
+                        // 2. 팀장-팀원 바꿔서 중복 체크
+                        const teamMember = row[colIndices.teamMember];
+                        if (leaderName && teamMember) {
+                            const leader = leaderName.toString().trim();
+                            const member = teamMember.toString().trim();
+                            if (leader && member) {
+                                const pairKey = [leader, member].sort().join('-');
+                                const pairs = teamPairMap[pairKey];
+                                if (pairs && pairs.length > 1) {
+                                    // 현재 행과 다른 조합이 있는지 체크
+                                    const hasSwapped = pairs.some(p => 
+                                        p.index !== i && 
+                                        (p.leader !== leader || p.member !== member)
+                                    );
+                                    if (hasSwapped) {
+                                        errors.push('swapDuplicate');
+                                        errorMessages.push('팀장팀원바꿔중복');
+                                        stats.swapDuplicate++;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 3. 미성년자 체크 - 팀장과 팀원 모두 확인 (2006년 8월 21일 이후)
+                        const leaderBirth = row[colIndices.leaderBirth];
+                        const memberBirth = row[colIndices.memberBirth];
+                        
+                        // 팀장 생년월일 체크
+                        if (leaderBirth) {
+                            const birthStr = leaderBirth.toString().trim();
                             if (birthStr.length === 6 || birthStr.length === 8) {
                                 let year, month, day;
                                 
@@ -640,7 +791,6 @@
                                     year = parseInt(birthStr.substring(0, 2));
                                     month = parseInt(birthStr.substring(2, 4));
                                     day = parseInt(birthStr.substring(4, 6));
-                                    // 00-25는 2000년대, 26-99는 1900년대로 가정
                                     year = year <= 25 ? 2000 + year : 1900 + year;
                                 } else {
                                     year = parseInt(birthStr.substring(0, 4));
@@ -648,59 +798,124 @@
                                     day = parseInt(birthStr.substring(6, 8));
                                 }
                                 
-                                // 2006년 8월 21일 이후 출생자는 미성년자
                                 if (year > 2006 || 
                                     (year === 2006 && month > 8) || 
                                     (year === 2006 && month === 8 && day > 21)) {
                                     errors.push('minor');
-                                    errorMessages.push('【미성년】');
+                                    errorMessages.push('팀장미성년');
                                     stats.minor++;
                                 } else if (month > 12 || month < 1 || day > 31 || day < 1) {
                                     errors.push('minor');
-                                    errorMessages.push('【날짜오류】');
+                                    errorMessages.push('팀장생년오류');
                                     stats.minor++;
                                 }
                             } else if (birthStr.length > 0) {
-                                // 잘못된 형식
                                 errors.push('minor');
-                                errorMessages.push('【생년월일오류】');
+                                errorMessages.push('팀장생년오류');
                                 stats.minor++;
                             }
                         }
                         
-                        // 3. 팀장과 팀원 이름 동일 체크
-                        const teamMember = row[colIndices.teamMember];
+                        // 팀원 생년월일 체크
+                        if (memberBirth) {
+                            const birthStr = memberBirth.toString().trim();
+                            if (birthStr.length === 6 || birthStr.length === 8) {
+                                let year, month, day;
+                                
+                                if (birthStr.length === 6) {
+                                    year = parseInt(birthStr.substring(0, 2));
+                                    month = parseInt(birthStr.substring(2, 4));
+                                    day = parseInt(birthStr.substring(4, 6));
+                                    year = year <= 25 ? 2000 + year : 1900 + year;
+                                } else {
+                                    year = parseInt(birthStr.substring(0, 4));
+                                    month = parseInt(birthStr.substring(4, 6));
+                                    day = parseInt(birthStr.substring(6, 8));
+                                }
+                                
+                                if (year > 2006 || 
+                                    (year === 2006 && month > 8) || 
+                                    (year === 2006 && month === 8 && day > 21)) {
+                                    errors.push('minor');
+                                    errorMessages.push('팀원미성년');
+                                    stats.minor++;
+                                } else if (month > 12 || month < 1 || day > 31 || day < 1) {
+                                    errors.push('minor');
+                                    errorMessages.push('팀원생년오류');
+                                    stats.minor++;
+                                }
+                            } else if (birthStr.length > 0) {
+                                errors.push('minor');
+                                errorMessages.push('팀원생년오류');
+                                stats.minor++;
+                            }
+                        }
+                        
+                        // 4. 팀장과 팀원 이름 동일 체크
                         if (leaderName && teamMember) {
                             const leaderStr = leaderName.toString().trim();
                             const memberStr = teamMember.toString().trim();
                             if (leaderStr && memberStr && leaderStr === memberStr) {
                                 errors.push('sameName');
-                                errorMessages.push('【이름동일】');
+                                errorMessages.push('이름동일');
                                 stats.sameNames++;
                             }
                         }
                         
-                        // 4. 전화번호 체크 (11자리)
+                        // 5. 생년월일 중복 체크
+                        let birthDuplicateFound = false;
+                        if (leaderBirth) {
+                            const birth = leaderBirth.toString().trim();
+                            if (birth && birthDateCount[birth] > 1) {
+                                if (!birthDuplicateFound) {
+                                    errors.push('birthDuplicate');
+                                    errorMessages.push('생년월일중복');
+                                    stats.birthDuplicate++;
+                                    birthDuplicateFound = true;
+                                }
+                            }
+                        }
+                        
+                        if (memberBirth && !birthDuplicateFound) {
+                            const birth = memberBirth.toString().trim();
+                            if (birth && birthDateCount[birth] > 1) {
+                                errors.push('birthDuplicate');
+                                errorMessages.push('생년월일중복');
+                                stats.birthDuplicate++;
+                            }
+                        }
+                        
+                        // 6. 전화번호 중복 체크
                         const phone = row[colIndices.phone];
                         if (phone) {
                             const phoneStr = phone.toString().replace(/[^0-9]/g, '');
+                            if (phoneStr && phoneCount[phoneStr] > 1) {
+                                errors.push('phoneDuplicate');
+                                errorMessages.push('전화번호중복');
+                                stats.phoneDuplicate++;
+                            }
+                        }
+                        
+                        // 7. 전화번호 형식 체크 (11자리)
+                        if (phone) {
+                            const phoneStr = phone.toString().replace(/[^0-9]/g, '');
                             if (phoneStr.length > 0) {
-                                // 0이 없으면 추가해서 체크
                                 const phoneWithZero = phoneStr.startsWith('0') ? phoneStr : '0' + phoneStr;
                                 if (phoneWithZero.length !== 11) {
                                     errors.push('wrongPhone');
-                                    errorMessages.push('【전화번호】');
+                                    errorMessages.push('전화번호오류');
                                     stats.wrongPhone++;
                                 }
                             }
                         }
                         
-                        // 복합 오류 체크
+                        // 복합 오류 체크 및 결과 메시지 생성
                         if (errors.length >= 2) {
                             stats.multipleErrors++;
-                            row.push('★★' + errorMessages.join(' '));
+                            // 복합 오류일 경우 처음 2개 항목만 표시
+                            row.push('★★【' + errorMessages.slice(0, 2).join('+') + '】');
                         } else if (errors.length === 1) {
-                            row.push('★' + errorMessages.join(' '));
+                            row.push('★【' + errorMessages[0] + '】');
                         } else {
                             row.push(''); // 오류 없음
                         }
@@ -708,51 +923,6 @@
                         newData.push(row);
                         rowErrors.push(errors);
                     }
-                    
-                    // HTML 테이블 생성 (미리보기용)
-                    let htmlTable = '<div style="margin: 20px 0; padding: 20px; background: white; border-radius: 10px; max-height: 400px; overflow: auto;">';
-                    htmlTable += '<h3 style="color: #667eea; margin-bottom: 15px;">검사 결과 미리보기</h3>';
-                    htmlTable += '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
-                    htmlTable += '<thead><tr style="background: #f0f0f0;">';
-                    
-                    // 테이블 헤더
-                    newData[0].forEach(header => {
-                        htmlTable += `<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">${header}</th>`;
-                    });
-                    htmlTable += '</tr></thead><tbody>';
-                    
-                    // 테이블 본문 (처음 20행만 표시)
-                    const displayRows = Math.min(21, newData.length);
-                    for (let i = 1; i < displayRows; i++) {
-                        const errors = rowErrors[i - 1];
-                        let bgColor = 'white';
-                        let fontWeight = 'normal';
-                        
-                        if (errors.length >= 2) {
-                            bgColor = '#8B6835'; // 갈색
-                            fontWeight = 'bold';
-                        } else if (errors.includes('duplicate')) {
-                            bgColor = '#FF6B6B'; // 빨강
-                        } else if (errors.includes('minor')) {
-                            bgColor = '#51CF66'; // 녹색
-                        } else if (errors.includes('sameName')) {
-                            bgColor = '#FFD93D'; // 노랑
-                        } else if (errors.includes('wrongPhone')) {
-                            bgColor = '#B197FC'; // 보라
-                        }
-                        
-                        htmlTable += `<tr style="background: ${bgColor}; color: ${bgColor !== 'white' ? 'white' : 'black'}; font-weight: ${fontWeight};">`;
-                        newData[i].forEach(cell => {
-                            htmlTable += `<td style="border: 1px solid #ddd; padding: 5px;">${cell || ''}</td>`;
-                        });
-                        htmlTable += '</tr>';
-                    }
-                    
-                    if (newData.length > displayRows) {
-                        htmlTable += `<tr><td colspan="${newData[0].length}" style="text-align: center; padding: 10px; color: #666;">... 외 ${newData.length - displayRows}행 더 있음 ...</td></tr>`;
-                    }
-                    
-                    htmlTable += '</tbody></table></div>';
                     
                     // 새 워크북 생성
                     const newWorkbook = XLSX.utils.book_new();
