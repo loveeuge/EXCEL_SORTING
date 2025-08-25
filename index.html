@@ -317,6 +317,10 @@
                         <span>팀장이름 중복 (빨강)</span>
                     </div>
                     <div class="legend-item">
+                        <div class="color-box" style="background-color: #DC143C;"></div>
+                        <span>팀장이름+전화번호 동일 (진빨강)</span>
+                    </div>
+                    <div class="legend-item">
                         <div class="color-box" style="background-color: #FF9999;"></div>
                         <span>팀장팀원 바꿔 중복 (연빨강)</span>
                     </div>
@@ -682,6 +686,7 @@
                     const stats = {
                         total: jsonData.length - 1,
                         duplicateLeader: 0,
+                        leaderPhoneSame: 0,
                         swapDuplicate: 0,
                         minor: 0,
                         sameNames: 0,
@@ -692,6 +697,7 @@
                     
                     // 중복 체크를 위한 맵
                     const leaderNameCount = {};
+                    const leaderPhoneCombo = {}; // 팀장이름+전화번호 조합 체크용
                     const teamPairMap = {}; // 팀장-팀원 조합 체크용
                     const phoneCount = {}; // 전화번호 중복 체크용
                     
@@ -705,6 +711,17 @@
                             const name = leaderName.toString().trim();
                             if (name) {
                                 leaderNameCount[name] = (leaderNameCount[name] || 0) + 1;
+                            }
+                        }
+                        
+                        // 팀장이름+전화번호 조합 체크
+                        const phone = row[colIndices.phone];
+                        if (leaderName && phone) {
+                            const name = leaderName.toString().trim();
+                            const phoneStr = phone.toString().replace(/[^0-9]/g, '');
+                            if (name && phoneStr) {
+                                const comboKey = name + '_' + phoneStr;
+                                leaderPhoneCombo[comboKey] = (leaderPhoneCombo[comboKey] || 0) + 1;
                             }
                         }
                         
@@ -727,7 +744,6 @@
                         }
                         
                         // 전화번호 카운트
-                        const phone = row[colIndices.phone];
                         if (phone) {
                             const phoneStr = phone.toString().replace(/[^0-9]/g, '');
                             if (phoneStr) {
@@ -756,7 +772,22 @@
                             }
                         }
                         
-                        // 2. 팀장-팀원 바꿔서 중복 체크
+                        // 2. 팀장이름+전화번호 동일 체크
+                        const phone = row[colIndices.phone];
+                        if (leaderName && phone) {
+                            const name = leaderName.toString().trim();
+                            const phoneStr = phone.toString().replace(/[^0-9]/g, '');
+                            if (name && phoneStr) {
+                                const comboKey = name + '_' + phoneStr;
+                                if (leaderPhoneCombo[comboKey] > 1) {
+                                    errors.push('leaderPhoneSame');
+                                    errorMessages.push('팀장이름전번동일');
+                                    stats.leaderPhoneSame++;
+                                }
+                            }
+                        }
+                        
+                        // 3. 팀장-팀원 바꿔서 중복 체크
                         const teamMember = row[colIndices.teamMember];
                         if (leaderName && teamMember) {
                             const leader = leaderName.toString().trim();
@@ -779,7 +810,7 @@
                             }
                         }
                         
-                        // 3. 미성년자 체크 - 팀장과 팀원 모두 확인 (2006년 8월 21일 이후)
+                        // 4. 미성년자 체크 - 팀장과 팀원 모두 확인 (2006년 8월 21일 이후)
                         const leaderBirth = row[colIndices.leaderBirth];
                         const memberBirth = row[colIndices.memberBirth];
                         
@@ -853,7 +884,7 @@
                             }
                         }
                         
-                        // 4. 팀장과 팀원 이름 동일 체크
+                        // 5. 팀장과 팀원 이름 동일 체크
                         if (leaderName && teamMember) {
                             const leaderStr = leaderName.toString().trim();
                             const memberStr = teamMember.toString().trim();
@@ -864,8 +895,7 @@
                             }
                         }
                         
-                        // 5. 전화번호 중복 체크
-                        const phone = row[colIndices.phone];
+                        // 6. 전화번호 중복 체크
                         if (phone) {
                             const phoneStr = phone.toString().replace(/[^0-9]/g, '');
                             if (phoneStr && phoneCount[phoneStr] > 1) {
@@ -875,7 +905,7 @@
                             }
                         }
                         
-                        // 6. 전화번호 형식 체크 (11자리)
+                        // 7. 전화번호 형식 체크 (11자리)
                         if (phone) {
                             const phoneStr = phone.toString().replace(/[^0-9]/g, '');
                             if (phoneStr.length > 0) {
