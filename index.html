@@ -285,7 +285,7 @@
                 <h3>처리 내용</h3>
                 <ul>
                     <li>All 시트에서 필요한 열만 추출</li>
-                    <li>보존 열: Event Name, 런제주 2025, 나이키, 250821, 홍길동, 250905, 010 1234 5678</li>
+                    <li>보존 열: Event Name, 런제주2025, 나이키, 250821, 홍길동, 250905, 010 1234 5678</li>
                     <li>열 이름 변경: 나이키→팀장이름, 250821→팀장 생년월일, 홍길동→팀원이름, 250905→팀원 생년월일, 010 1234 5678→전화번호</li>
                     <li>전화번호 자동 정리: 0 추가 및 3-4-4 형식으로 변환</li>
                     <li>파일명에 "_솔팅" 추가</li>
@@ -326,10 +326,6 @@
                     <div class="legend-item">
                         <div class="color-box" style="background-color: #FFD93D;"></div>
                         <span>팀장/팀원 이름 동일 (노랑)</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="color-box" style="background-color: #87CEEB;"></div>
-                        <span>생년월일 중복 (하늘색)</span>
                     </div>
                     <div class="legend-item">
                         <div class="color-box" style="background-color: #FFA500;"></div>
@@ -414,7 +410,7 @@
         });
 
         function showStatus1(message, type) {
-            statusDiv1.className = `status ${type}`;
+            statusDiv1.className = 'status ' + type;
             statusDiv1.innerHTML = message;
         }
 
@@ -447,7 +443,7 @@
                     }
                     
                     const headers = jsonData[0];
-                    const columnsToKeep = ['Event Name', '런제주 2025', '나이키', '250821', '홍길동', '250905', '010 1234 5678'];
+                    const columnsToKeep = ['Event Name', '런제주2025', '나이키', '250821', '홍길동', '250905', '010 1234 5678'];
                     const columnIndices = [];
                     const columnMapping = {};
                     
@@ -553,11 +549,11 @@
                     const newFileName = file.name.replace(/\.(xlsx|xls)$/, '_솔팅.xlsx');
                     XLSX.writeFile(newWorkbook, newFileName);
                     
-                    showStatus1(`✅ 파일 처리 완료! "${newFileName}" 다운로드됨<br>처리된 열: ${columnIndices.length}개<br>전화번호 자동 포맷팅 완료`, 'success');
+                    showStatus1('✅ 파일 처리 완료! "' + newFileName + '" 다운로드됨<br>처리된 열: ' + columnIndices.length + '개<br>전화번호 자동 포맷팅 완료', 'success');
                     
                 } catch (error) {
                     console.error('Error:', error);
-                    showStatus1(`❌ 파일 처리 중 오류 발생: ${error.message}`, 'error');
+                    showStatus1('❌ 파일 처리 중 오류 발생: ' + error.message, 'error');
                 }
             };
             
@@ -609,7 +605,7 @@
         });
 
         function showStatus2(message, type) {
-            statusDiv2.className = `status ${type}`;
+            statusDiv2.className = 'status ' + type;
             statusDiv2.innerHTML = message;
         }
 
@@ -659,7 +655,6 @@
                         swapDuplicate: 0,
                         minor: 0,
                         sameNames: 0,
-                        birthDuplicate: 0,
                         phoneDuplicate: 0,
                         wrongPhone: 0,
                         multipleErrors: 0
@@ -668,7 +663,6 @@
                     // 중복 체크를 위한 맵
                     const leaderNameCount = {};
                     const teamPairMap = {}; // 팀장-팀원 조합 체크용
-                    const birthDateCount = {}; // 생년월일 중복 체크용
                     const phoneCount = {}; // 전화번호 중복 체크용
                     
                     // 첫 번째 패스: 모든 데이터 수집
@@ -702,24 +696,6 @@
                             }
                         }
                         
-                        // 생년월일 카운트 (팀장, 팀원 모두)
-                        const leaderBirth = row[colIndices.leaderBirth];
-                        const memberBirth = row[colIndices.memberBirth];
-                        
-                        if (leaderBirth) {
-                            const birth = leaderBirth.toString().trim();
-                            if (birth) {
-                                birthDateCount[birth] = (birthDateCount[birth] || 0) + 1;
-                            }
-                        }
-                        
-                        if (memberBirth) {
-                            const birth = memberBirth.toString().trim();
-                            if (birth) {
-                                birthDateCount[birth] = (birthDateCount[birth] || 0) + 1;
-                            }
-                        }
-                        
                         // 전화번호 카운트
                         const phone = row[colIndices.phone];
                         if (phone) {
@@ -730,12 +706,8 @@
                         }
                     }
                     
-                    // 각 행 검사 및 오류 타입 저장
-                    const rowErrors = [];
+                    // 각 행 검사
                     const newData = [headers]; // 헤더 추가
-                    
-                    // 오류 마커 추가할 열 인덱스
-                    const errorColumnIndex = headers.length;
                     newData[0].push('검사결과'); // 새 열 헤더 추가
                     
                     for (let i = 1; i < jsonData.length; i++) {
@@ -862,30 +834,7 @@
                             }
                         }
                         
-                        // 5. 생년월일 중복 체크
-                        let birthDuplicateFound = false;
-                        if (leaderBirth) {
-                            const birth = leaderBirth.toString().trim();
-                            if (birth && birthDateCount[birth] > 1) {
-                                if (!birthDuplicateFound) {
-                                    errors.push('birthDuplicate');
-                                    errorMessages.push('생년월일중복');
-                                    stats.birthDuplicate++;
-                                    birthDuplicateFound = true;
-                                }
-                            }
-                        }
-                        
-                        if (memberBirth && !birthDuplicateFound) {
-                            const birth = memberBirth.toString().trim();
-                            if (birth && birthDateCount[birth] > 1) {
-                                errors.push('birthDuplicate');
-                                errorMessages.push('생년월일중복');
-                                stats.birthDuplicate++;
-                            }
-                        }
-                        
-                        // 6. 전화번호 중복 체크
+                        // 5. 전화번호 중복 체크
                         const phone = row[colIndices.phone];
                         if (phone) {
                             const phoneStr = phone.toString().replace(/[^0-9]/g, '');
@@ -896,7 +845,7 @@
                             }
                         }
                         
-                        // 7. 전화번호 형식 체크 (11자리)
+                        // 6. 전화번호 형식 체크 (11자리)
                         if (phone) {
                             const phoneStr = phone.toString().replace(/[^0-9]/g, '');
                             if (phoneStr.length > 0) {
@@ -921,7 +870,6 @@
                         }
                         
                         newData.push(row);
-                        rowErrors.push(errors);
                     }
                     
                     // 새 워크북 생성
@@ -987,7 +935,7 @@
                     
                 } catch (error) {
                     console.error('Error:', error);
-                    showStatus2(`❌ 파일 처리 중 오류 발생: ${error.message}`, 'error');
+                    showStatus2('❌ 파일 처리 중 오류 발생: ' + error.message, 'error');
                     statsBox.style.display = 'none';
                 }
             };
