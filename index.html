@@ -287,6 +287,7 @@
                     <li>All 시트에서 필요한 열만 추출</li>
                     <li>보존 열: Event Name, 런제주2025, 나이키, 250821, 홍길동, 250905, 010 1234 5678</li>
                     <li>열 이름 변경: 나이키→팀장이름, 250821→팀장 생년월일, 홍길동→팀원이름, 250905→팀원 생년월일, 010 1234 5678→전화번호</li>
+                    <li>생년월일 자동 정리: 5자리인 경우 앞에 0 추가 (예: 50821 → 050821)</li>
                     <li>전화번호 자동 정리: 0 추가 및 3-4-4 형식으로 변환</li>
                     <li>파일명에 "_솔팅" 추가</li>
                 </ul>
@@ -489,6 +490,21 @@
                         return phoneStr; // 11자리가 아닌 경우 그대로 반환
                     }
                     
+                    // 생년월일 포맷팅 함수 (5자리인 경우 앞에 0 추가)
+                    function formatBirthDate(birthDate) {
+                        if (!birthDate) return '';
+                        
+                        // 숫자만 추출
+                        let birthStr = birthDate.toString().replace(/[^0-9]/g, '');
+                        
+                        // 5자리인 경우 앞에 0 추가 (예: 50821 -> 050821)
+                        if (birthStr.length === 5) {
+                            birthStr = '0' + birthStr;
+                        }
+                        
+                        return birthStr;
+                    }
+                    
                     const newData = [];
                     const newHeaders = columnIndices.map(index => {
                         const originalHeader = headers[index];
@@ -513,6 +529,10 @@
                     
                     // 전화번호 열 인덱스 찾기
                     const phoneColumnIndex = newHeaders.findIndex(h => h === '전화번호');
+                    // 팀장 생년월일 열 인덱스 찾기
+                    const leaderBirthIndex = newHeaders.findIndex(h => h === '팀장 생년월일');
+                    // 팀원 생년월일 열 인덱스 찾기
+                    const memberBirthIndex = newHeaders.findIndex(h => h === '팀원 생년월일');
                     
                     for (let i = 1; i < jsonData.length; i++) {
                         const row = jsonData[i];
@@ -522,6 +542,16 @@
                             // 전화번호 열인 경우 포맷팅 적용
                             if (colIdx === phoneColumnIndex) {
                                 return formatPhoneNumber(value);
+                            }
+                            
+                            // 팀장 생년월일 열인 경우 포맷팅 적용
+                            if (colIdx === leaderBirthIndex) {
+                                return formatBirthDate(value);
+                            }
+                            
+                            // 팀원 생년월일 열인 경우 포맷팅 적용
+                            if (colIdx === memberBirthIndex) {
+                                return formatBirthDate(value);
                             }
                             
                             return value;
